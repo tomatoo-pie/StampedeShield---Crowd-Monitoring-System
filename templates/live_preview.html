@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live Monitoring</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #f6f7fb;
+}
+
+/* HEADER */
+.header {
+    padding: 20px 40px;
+    font-weight: bold;
+    font-size: 22px;
+}
+.header span {
+    color: #6c4cff;
+}
+
+/* MAIN */
+.container {
+    padding: 30px;
+}
+
+.title {
+    font-size: 30px;
+    color: #5a3fc0;
+    margin-bottom: 20px;
+}
+
+/* CARD */
+.main-card {
+    display: flex;
+    gap: 30px;
+    background: #e9e4f5;
+    padding: 30px;
+    border-radius: 20px;
+}
+
+/* VIDEO */
+.video-box {
+    flex: 2;
+}
+
+.video-box img {
+    width: 100%;
+    border-radius: 20px;
+}
+
+/* RIGHT PANEL */
+.side-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* RISK CARD */
+.risk-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    border: 2px solid #6c4cff;
+}
+
+/* GAUGE */
+.gauge {
+    position: relative;
+    width: 200px;
+    height: 100px;
+    margin: auto;
+}
+
+.gauge-bg {
+    width: 100%;
+    height: 100%;
+    border-radius: 200px 200px 0 0;
+    background: conic-gradient(
+        green 0deg,
+        yellow 120deg,
+        red 240deg
+    );
+}
+
+.gauge-cover {
+    position: absolute;
+    top: 25px;
+    left: 25px;
+    width: 150px;
+    height: 75px;
+    background: white;
+    border-radius: 150px 150px 0 0;
+}
+
+/* NEEDLE */
+.needle {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 4px;
+    height: 80px;
+    background: black;
+    transform-origin: bottom center;
+    transform: rotate(-90deg);
+    transition: transform 0.5s ease-in-out;
+}
+
+.needle::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    left: -6px;
+    width: 12px;
+    height: 12px;
+    background: black;
+    border-radius: 50%;
+}
+
+/* TEXT */
+.risk-score {
+    font-size: 28px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.stats {
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+/* BUTTON */
+.toggle-btn {
+    padding: 12px;
+    background: #6c4cff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.toggle-btn:hover {
+    background: #5a3fc0;
+}
+
+/* INFO */
+.info-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+}
+
+.info-card h3 {
+    color: #6c4cff;
+}
+
+.info-card li {
+    margin: 8px 0;
+}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+    .main-card {
+        flex-direction: column;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    STAMPEDE<span>SHIELD</span>
+</div>
+
+<div class="container">
+
+    <div class="title">Detection Output on Recorded Dataset</div>
+
+    <div class="main-card">
+
+        <!-- LEFT: VIDEO -->
+        <div class="video-box">
+            <img src="/video_feed?job_id={{ job_id }}">
+            <p id="job-message" role="status">Waiting for worker…</p>
+            <a id="result-link" hidden>Download processed video</a>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="side-panel">
+
+            <!-- RISK -->
+            <div class="risk-card">
+                <h3>Current Risk Score</h3>
+
+                <div class="gauge">
+                    <div class="gauge-bg"></div>
+                    <div class="gauge-cover"></div>
+                    <div class="needle" id="needle"></div>
+                </div>
+
+                <div class="risk-score" id="riskScore">0 / 100</div>
+                <div id="riskLevel">LOW</div>
+
+                <div class="stats">
+                    <div>People Count: <span id="peopleCount">0</span></div>
+                    <div>Density: <span id="densityLevel">LOW</span></div>
+                </div>
+            </div>
+
+            <!-- INFO -->
+            <div class="info-card">
+                <h3>AI-Powered Crowd Safety</h3>
+                <ul>
+                    <li>Real-time people counting</li>
+                    <li>Density heatmap generation</li>
+                    <li>Risk score calculation</li>
+                    <li>Automatic alert generation</li>
+                </ul>
+            </div>
+
+            <!-- BUTTON -->
+            <button class="toggle-btn"
+                onclick="toggleHeatmap()">
+                Toggle Heat Map
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+/* FETCH + UPDATE */
+function updateRisk() {
+    fetch("/api/risk_score?job_id={{ job_id }}")
+        .then(res => res.json())
+        .then(data => {
+
+            const score = data.score;
+            const count = data.count;
+            document.querySelector(".title").innerText = "Video processing: " + data.status;
+            document.getElementById("job-message").innerText = data.status === "failed"
+                ? "Video processing failed. Check the worker logs for details."
+                : data.status === "completed" ? "Video processing complete." : "Your video is being processed in the background.";
+            if (data.status === "completed") {
+                const link = document.getElementById("result-link");
+                link.href = "/processed/{{ job_id }}.mp4";
+                link.hidden = false;
+            }
+
+            document.getElementById("riskScore").innerText = score + " / 100";
+            document.getElementById("peopleCount").innerText = count;
+
+            // NEEDLE ROTATION
+            const angle = (score / 100) * 180 - 90;
+            document.getElementById("needle").style.transform = `rotate(${angle}deg)`;
+
+            // RISK LEVEL
+            let level = "LOW";
+            if (score > 70) level = "HIGH";
+            else if (score > 40) level = "MEDIUM";
+
+            document.getElementById("riskLevel").innerText = level;
+
+            // DENSITY
+            let density = "LOW";
+            if (count > 30) density = "HIGH";
+            else if (count > 15) density = "MEDIUM";
+
+            document.getElementById("densityLevel").innerText = density;
+
+        })
+        .catch(err => console.log(err));
+}
+
+/* RUN EVERY SECOND */
+setInterval(updateRisk, 1000);
+updateRisk();
+
+function toggleHeatmap() {
+    fetch("/toggle_heatmap?job_id={{ job_id }}", {method: "POST"})
+        .then(response => response.json())
+        .catch(err => console.log(err));
+}
+
+</script>
+
+</body>
+</html>
